@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Music Player</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: #333;
+    }
+    .music-player {
+      background: linear-gradient(135deg, #1e1e1e, #2c2c2c);
+      border-radius: 20px;
+      padding: 20px;
+      width: 350px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+    .cd-container {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+    .cd {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: url('https://via.placeholder.com/200?text=Album+Art') center/cover;
+      animation: spin 4s linear infinite;
+      animation-play-state: paused;
+    }
+    .cd.playing {
+      animation-play-state: running;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .song-info {
+      text-align: center;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    .song-title {
+      font-size: 1.5em;
+      margin: 0;
+    }
+    .artist {
+      font-size: 1em;
+      color: #bbb;
+    }
+    .progress-container {
+      width: 100%;
+      height: 5px;
+      background: #555;
+      border-radius: 5px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+    .progress {
+      width: 0;
+      height: 100%;
+      background: #1db954;
+      border-radius: 5px;
+    }
+    .time-info {
+      display: flex;
+      justify-content: space-between;
+      color: #bbb;
+      font-size: 0.9em;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .controls button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: color 0.3s;
+    }
+    .controls button:hover {
+      color: #1db954;
+    }
+    .volume-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    .volume-container input {
+      width: 100px;
+      accent-color: #1db954;
+    }
+    .playlist {
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 20px;
+      color: #fff;
+    }
+    .playlist-item {
+      padding: 10px;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+    .playlist-item:hover,
+    .playlist-item.active {
+      background: #1db954;
+    }
+  </style>
+</head>
+<body>
+  <div class="music-player">
+    <div class="cd-container">
+      <div class="cd"></div>
+    </div>
+    <div class="song-info">
+      <h2 class="song-title">Song Title</h2>
+      <p class="artist">Artist Name</p>
+    </div>
+    <div class="progress-container">
+      <div class="progress"></div>
+    </div>
+    <div class="time-info">
+      <span class="current-time">0:00</span>
+      <span class="duration">0:00</span>
+    </div>
+    <div class="controls">
+      <button id="prev">⏮</button>
+      <button id="play-pause">▶</button>
+      <button id="next">⏭</button>
+    </div>
+    <div class="volume-container">
+      <span>🔊</span>
+      <input type="range" id="volume" min="0" max="1" step="0.01" value="1" />
+    </div>
+    <div class="playlist">
+      <!-- Playlist items will be added dynamically -->
+    </div>
+  </div>
+
+  <script>
+    const audio = new Audio();
+    const cd = document.querySelector('.cd');
+    const songTitle = document.querySelector('.song-title');
+    const artist = document.querySelector('.artist');
+    const progressContainer = document.querySelector('.progress-container');
+    const progress = document.querySelector('.progress');
+    const currentTimeEl = document.querySelector('.current-time');
+    const durationEl = document.querySelector('.duration');
+    const playPauseBtn = document.querySelector('#play-pause');
+    const prevBtn = document.querySelector('#prev');
+    const nextBtn = document.querySelector('#next');
+    const volume = document.querySelector('#volume');
+    const playlist = document.querySelector('.playlist');
+
+    const songs = [
+      {
+        title: "Blinding Lights",
+        artist: "The Weeknd",
+        src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+        cover: "https://via.placeholder.com/200?text=Blinding+Lights"
+      },
+      {
+        title: "Shape of You",
+        artist: "Ed Sheeran",
+        src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+        cover: "https://via.placeholder.com/200?text=Shape+of+You"
+      },
+      {
+        title: "Levitating",
+        artist: "Dua Lipa",
+        src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
+        cover: "https://via.placeholder.com/200?text=Levitating"
+      }
+    ];
+
+    let currentSongIndex = 0;
+    let isPlaying = false;
+
+    function loadSong(index) {
+      const song = songs[index];
+      audio.pause();
+      audio.currentTime = 0;
+      audio.src = song.src;
+      songTitle.textContent = song.title;
+      artist.textContent = song.artist;
+      cd.style.backgroundImage = `url(${song.cover})`;
+      updatePlaylistUI();
+    }
+
+    function updatePlaylistUI() {
+      playlist.innerHTML = '';
+      songs.forEach((song, i) => {
+        const item = document.createElement('div');
+        item.classList.add('playlist-item');
+        if (i === currentSongIndex) item.classList.add('active');
+        item.textContent = `${song.title} - ${song.artist}`;
+        item.addEventListener('click', () => {
+          currentSongIndex = i;
+          loadSong(currentSongIndex);
+          playSong();
+        });
+        playlist.appendChild(item);
+      });
+    }
+
+    function playSong() {
+      isPlaying = true;
+      audio.play().catch(err => {
+        console.log("Playback blocked by browser:", err);
+      });
+      playPauseBtn.textContent = '⏸';
+      cd.classList.add('playing');
+    }
+
+    function pauseSong() {
+      isPlaying = false;
+      audio.pause();
+      playPauseBtn.textContent = '▶';
+      cd.classList.remove('playing');
+    }
+
+    function togglePlayPause() {
+      if (isPlaying) {
+        pauseSong();
+      } else {
+        playSong();
+      }
+    }
+
+    function nextSong() {
+      currentSongIndex = (currentSongIndex + 1) % songs.length;
+      loadSong(currentSongIndex);
+      playSong();
+    }
+
+    function prevSong() {
+      currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+      loadSong(currentSongIndex);
+      playSong();
+    }
+
+    function updateProgress() {
+      if (audio.duration) {
+        const progressPercent = (audio.currentTime / audio.duration) * 100;
+        progress.style.width = `${progressPercent}%`;
+        currentTimeEl.textContent = formatTime(audio.currentTime);
+      }
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      seconds = Math.floor(seconds % 60);
+      return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+    }
+
+    progressContainer.addEventListener('click', (e) => {
+      if (!isNaN(audio.duration)) {
+        const width = progressContainer.clientWidth;
+        const clickX = e.offsetX;
+        audio.currentTime = (clickX / width) * audio.duration;
+      }
+    });
+
+    audio.addEventListener('timeupdate', updateProgress);
+
+    audio.addEventListener('loadedmetadata', () => {
+      durationEl.textContent = formatTime(audio.duration);
+    });
+
+    audio.addEventListener('ended', nextSong);
+    playPauseBtn.addEventListener('click', togglePlayPause);
+    nextBtn.addEventListener('click', nextSong);
+    prevBtn.addEventListener('click', prevSong);
+    volume.addEventListener('input', () => {
+      audio.volume = volume.value;
+    });
+
+    // Initialize
+    loadSong(currentSongIndex);
+    pauseSong();
+  </script>
+</body>
+</html>
